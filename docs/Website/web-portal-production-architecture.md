@@ -48,14 +48,20 @@ sudo systemctl start hodler-web-portal.service
 systemctl is-active hodler-web-portal.service
 ```
 
-3. If systemd still reports **`Failed to load environment files`**, fix paths only (rsync does not remove `/etc`):
+3. If systemd reports **`Failed to load environment files`**, open the unit and fix every **`EnvironmentFile=`** path:
 
 ```bash
 systemctl cat hodler-web-portal.service
-sudo ls -la /etc/hodler-suite/
 ```
 
-Every `EnvironmentFile=` line must point at an existing file (commonly `/etc/hodler-suite/web_portal.env`). Restore that file from backup or your secrets store, then `sudo systemctl restart hodler-web-portal.service` again.
+Typical layouts:
+
+- **Under the app tree:** `EnvironmentFile=/opt/hodler-suite/web_portal/web_portal.env` — create/restore that file from **`.env.example`** in the app root (`cp .env.example web_portal.env` then edit; **`chmod 600 web_portal.env`**). The deploy script excludes `web_portal.env` from rsync so a normal deploy does not delete it. It **must not** exclude `.env.example` (older scripts used `--exclude '.env.*'`, which skipped `.env.example` on the server—re-run deploy from a fixed script or `scp` `.env.example` once).
+- **Under `/etc/hodler-suite/`:** some installs use `/etc/hodler-suite/web_portal.env` instead — use `sudo ls -la /etc/hodler-suite/` and restore the file there if that is what the unit references.
+
+4. **`venv` vs `.venv`:** if **`ExecStart=`** references **`.venv/bin/gunicorn`** but you only have **`venv/`**, either recreate the venv as `.venv` or point the interpreter layout at the unit (e.g. `cd /opt/hodler-suite/web_portal && ln -sfn venv .venv` as the service user so `.venv/bin/gunicorn` resolves).
+
+5. **Secrets in systemd drop-ins:** never store API tokens in `*.conf` under `/etc/systemd/system/*.d/` (they appear in logs and `systemctl cat`). Revoke any exposed token, move values into `web_portal.env` (or another root-only file), `sudo systemctl daemon-reload`, then restart.
 
 ## Hosted documentation and TLS
 
