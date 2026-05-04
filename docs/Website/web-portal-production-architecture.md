@@ -18,7 +18,7 @@ Only the repository **deploy scripts** (rsync to the server layout + `systemctl 
 - Web portal: `scripts/v2.0/web_portal/deploy/deploy_web_portal_safe.sh`
 - Script API: `scripts/v2.0/web_portal/deploy/deploy_script_api_safe.sh` (see `deploy/status/SCRIPT_API_RUNTIME.md`)
 
-The web portal promote step uses `rsync --delete` **with excludes** for `venv/`, `.venv/`, `pydeps/`, `.env`, `data/`, and databases so production-only paths are not wiped by a normal deploy.
+The web portal deploy script **defaults to merge-only promote** (`WEB_PORTAL_PROMOTE_DELETE` unset or `0`): new/changed files from the staging rsync are copied into the live app dir **without** `--delete`, so stray server-only files are not pruned accidentally. Set **`WEB_PORTAL_PROMOTE_DELETE=1`** only when you deliberately want rsync to remove destination files that are absent from the stage (still excludes `venv/`, `.venv/`, `web_portal.env`, `data/`, databases, logs, etc.). Never add a blanket `--exclude '.env.*'` — it blocks **`.env.example`** and breaks recovery.
 
 ### Recover a destroyed portal venv (missing `venv/bin/gunicorn`)
 
