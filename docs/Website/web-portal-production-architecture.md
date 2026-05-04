@@ -33,6 +33,15 @@ If `ls /opt/hodler-suite/web_portal/venv/bin/gunicorn` fails, the interpreter en
    scp docs/Website/web-portal-runtime-requirements.txt linuxuser@YOUR_HOST:/opt/hodler-suite/web_portal/requirements-production.txt
    ```
 
+   **Env template:** the app’s `.env.example` may be missing on laptops where `scripts/v2.8/web_portal/` is not checked out. Use the tracked copy and install it on the server as `.env.example`, then derive `web_portal.env`:
+
+   ```bash
+   scp docs/Website/web_portal.env.example linuxuser@YOUR_HOST:/opt/hodler-suite/web_portal/.env.example
+   ssh linuxuser@YOUR_HOST 'cd /opt/hodler-suite/web_portal && cp .env.example web_portal.env && chmod 600 web_portal.env'
+   ```
+
+   Edit `web_portal.env` on the server for real secrets before starting the unit.
+
 2. On the server:
 
 ```bash
