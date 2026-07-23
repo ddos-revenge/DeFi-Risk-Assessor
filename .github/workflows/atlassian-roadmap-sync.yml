@@ -12,7 +12,7 @@ on:
       - main
       - atlassian-roadmap-sync # TEMPORARY: only for first-run testing before merge, remove after
     paths:
-      - "scripts/v2.8/web_portal/**"
+      - "scripts/v2.8/*.py"
       - "docs/Website/hodler-suite-unified-sprint-and-roadmap-2026-05.md"
       - "docs/Website/production-release-sprint-sessions-2026.md"
   workflow_dispatch:
@@ -65,7 +65,7 @@ jobs:
             echo "roadmap_docs_changed=false" >> "$GITHUB_OUTPUT"
           fi
 
-          if echo "${CHANGED_FILES}" | grep -qE "^scripts/v2\.8/web_portal/"; then
+          if echo "${CHANGED_FILES}" | grep -qE "^scripts/v2\.8/[^/]+\.py$"; then
             echo "code_changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "code_changed=false" >> "$GITHUB_OUTPUT"
