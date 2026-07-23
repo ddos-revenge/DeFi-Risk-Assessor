@@ -3,14 +3,14 @@ name: Atlassian roadmap sync
 # Hodler Suite only - deliberately does NOT watch private_trading_bot/** (the LTC app).
 # - Any push touching the roadmap docs: re-syncs Confluence and proposes Jira issues
 #   for any roadmap item that doesn't have one yet.
-# - Any push touching web_portal code: scans the pushed commit messages for roadmap
-#   IDs (e.g. "U-066", "P12") and transitions the matching Jira issue to Done.
+# - Any push touching the tracked Hodler Suite / DeFi Risk engine code (web_portal/ itself
+#   is git-ignored, ops-only - see docs/Website/*.md history): scans the pushed commit
+#   messages for roadmap IDs (e.g. "U-066", "P12") and transitions the matching Jira issue.
 
 on:
   push:
     branches:
       - main
-      - atlassian-roadmap-sync # TEMPORARY: only for first-run testing before merge, remove after
     paths:
       - "scripts/v2.8/*.py"
       - "docs/Website/hodler-suite-unified-sprint-and-roadmap-2026-05.md"
@@ -79,11 +79,6 @@ jobs:
           git -C "${GITHUB_WORKSPACE}" log "${{ steps.detect.outputs.range }}" --format=%B | \
             python3 atlassian_sync.py resolve \
               --comment-prefix "Resolved automatically from ${{ github.sha }} on ${{ github.ref_name }}. https://github.com/${{ github.repository }}/commit/${{ github.sha }}"
-
-      - name: TEMP diagnose Confluence space access
-        working-directory: .github/scripts
-        run: |
-          python3 atlassian_sync.py diagnose
 
       - name: Propose Jira issues for new roadmap items
         if: steps.detect.outputs.roadmap_docs_changed == 'true'
