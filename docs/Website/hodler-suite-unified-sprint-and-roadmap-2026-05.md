@@ -1,6 +1,6 @@
 # Hodler Suite — Unified Sprint Backlog & Roadmap (2026)
 
-Last updated: **2026-05-04**
+Last updated: **2026-07-23**
 
 This document is the **single source of truth** for program sequencing. It merges:
 
@@ -66,6 +66,10 @@ From [production-release-sprint-sessions-2026.md](./production-release-sprint-se
 
 Consolidated **CodeQL / application security** remediation wave (URL sanitization, safe redirects, SSRF allowlists, logging redaction, workflow permissions, action pinning, weak crypto cleanup, etc.) — tracked in GitHub / `SECURITY.md`; not duplicated here as open backlog.
 
+### 2.5 Emergency recovery, ops hardening, and roadmap automation (2026-07-22/23)
+
+Outage recovery (env/data-directory wipe from a local rsync mistake), 4 missing ops scripts recovered and redeployed, nightly DB backup timer added (none existed before), Security Verification Snapshot fully resolved (all items green), obsolete local desktop app retired (`system_tray.py` + `dashboard/` suite, superseded by 24/7 server-side timers), automated Jira/Confluence roadmap sync built, and a chronic deploy-pipeline bug fixed (every deploy had failed since May 4th). Full detail in [production-release-sprint-sessions-2026.md](./production-release-sprint-sessions-2026.md) § Session P13.
+
 ---
 
 ## 3. Unified open backlog (single sprint list)
@@ -118,6 +122,7 @@ Items are **deduplicated** and ordered roughly by **dependency / release value**
 | **U-041** | Set **internal SLO targets** (availability, job latency percentiles) using existing boards | P6 |
 | **U-042** | **Chaos-lite** drills: worker kill, provider timeout, queue backlog — document outcomes | P6 |
 | **U-043** | Services monitoring: **sampler/timer health** + alerting for stale samples (verify prod) | Web port remaining |
+| **U-067** | **THORChain health probe is dead**: `thornode.ninerealms.com` no longer resolves (confirmed from 3 independent resolvers); same for every other `ninerealms.com`/`thorchain.network` subdomain tried. Needs a current, verified node URL from an authoritative source (official docs/Discord, or a wallet/explorer known to be live against mainnet) before re-wiring `SCRIPT_API_THORCHAIN_HEALTH_URL` | P13 |
 
 ### 3.6 Security & abuse (ongoing streams)
 
