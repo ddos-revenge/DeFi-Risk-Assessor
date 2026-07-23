@@ -17,7 +17,7 @@ import hashlib
 from typing import Dict, Any, Optional, List, Callable, cast
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
-from urllib.parse import urlparse, parse_qsl, urlencode
+from urllib.parse import urlparse, parse_qsl, urlencode, unquote
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -1205,6 +1205,27 @@ class APIErrorHandler:
                 return self._data
 
         return cast(requests.Response, MockResponse(data))
+
+    def _is_safe_partial_request_url(self, url: str) -> bool:
+        """Validate URL path/query to prevent path-manipulation partial SSRF."""
+        try:
+            parsed = urlparse(str(url or ''))
+        except Exception:
+            return False
+
+        if parsed.scheme not in {'http', 'https'} or not parsed.netloc:
+            return False
+
+        decoded_path = unquote(parsed.path or '').lower()
+        decoded_query = unquote(parsed.query or '').lower()
+
+        blocked_tokens = ('..', '\\', '%2f', '%5c', '%2e', '#', '\r', '\n', '\x00')
+        if any(token in decoded_path for token in blocked_tokens):
+            return False
+        if any(token in decoded_query for token in ('\r', '\n', '\x00')):
+            return False
+
+        return True
     
     def make_request(self, method: str, url: str, api_name: Optional[str] = None, 
                     fallback_func: Optional[Callable[[], requests.Response]] = None, **kwargs) -> Optional[requests.Response]:
@@ -1220,6 +1241,11 @@ class APIErrorHandler:
         """
         if api_name is None:
             api_name = self._identify_api(url)
+
+        if not self._is_safe_partial_request_url(url):
+            self._log_error(api_name or 'unknown', url, "Blocked unsafe URL path/query (partial SSRF protection)", 400)
+            return self._make_rate_limited_response(url, retry_after_seconds=0.0)
+
         force_live = bool(kwargs.pop('force_live', False))
         method_upper = str(method or 'GET').upper().strip()
 
