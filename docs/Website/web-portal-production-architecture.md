@@ -18,7 +18,7 @@ Only the repository **deploy scripts** (rsync to the server layout + `systemctl 
 - Web portal: `scripts/v2.0/web_portal/deploy/deploy_web_portal_safe.sh`
 - Script API: `scripts/v2.0/web_portal/deploy/deploy_script_api_safe.sh` (see `deploy/status/SCRIPT_API_RUNTIME.md`)
 
-The web portal promote step uses `rsync --delete` **with excludes** for `venv/`, `.venv/`, `pydeps/`, `.env`, `data/`, and databases so production-only paths are not wiped by a normal deploy.
+The web portal deploy script **defaults to merge-only promote** (`WEB_PORTAL_PROMOTE_DELETE` unset or `0`): new/changed files from the staging rsync are copied into the live app dir **without** `--delete`, so stray server-only files are not pruned accidentally. Set **`WEB_PORTAL_PROMOTE_DELETE=1`** only when you deliberately want rsync to remove destination files that are absent from the stage (still excludes `venv/`, `.venv/`, `web_portal.env`, `data/`, databases, logs, etc.). Never add a blanket `--exclude '.env.*'` — it blocks **`.env.example`** and breaks recovery.
 
 ### Recover a destroyed portal venv (missing `venv/bin/gunicorn`)
 
@@ -32,6 +32,15 @@ If `ls /opt/hodler-suite/web_portal/venv/bin/gunicorn` fails, the interpreter en
    cd /path/to/venv/repo
    scp docs/Website/web-portal-runtime-requirements.txt linuxuser@YOUR_HOST:/opt/hodler-suite/web_portal/requirements-production.txt
    ```
+
+   **Env template:** the app’s `.env.example` may be missing on laptops where `scripts/v2.8/web_portal/` is not checked out. Use the tracked copy and install it on the server as `.env.example`, then derive `web_portal.env`:
+
+   ```bash
+   scp docs/Website/web_portal.env.example linuxuser@YOUR_HOST:/opt/hodler-suite/web_portal/.env.example
+   ssh linuxuser@YOUR_HOST 'cd /opt/hodler-suite/web_portal && cp .env.example web_portal.env && chmod 600 web_portal.env'
+   ```
+
+   Edit `web_portal.env` on the server for real secrets before starting the unit.
 
 2. On the server:
 
@@ -48,14 +57,20 @@ sudo systemctl start hodler-web-portal.service
 systemctl is-active hodler-web-portal.service
 ```
 
-3. If systemd still reports **`Failed to load environment files`**, fix paths only (rsync does not remove `/etc`):
+3. If systemd reports **`Failed to load environment files`**, open the unit and fix every **`EnvironmentFile=`** path:
 
 ```bash
 systemctl cat hodler-web-portal.service
-sudo ls -la /etc/hodler-suite/
 ```
 
-Every `EnvironmentFile=` line must point at an existing file (commonly `/etc/hodler-suite/web_portal.env`). Restore that file from backup or your secrets store, then `sudo systemctl restart hodler-web-portal.service` again.
+Typical layouts:
+
+- **Under the app tree:** `EnvironmentFile=/opt/hodler-suite/web_portal/web_portal.env` — create/restore that file from **`.env.example`** in the app root (`cp .env.example web_portal.env` then edit; **`chmod 600 web_portal.env`**). The deploy script excludes `web_portal.env` from rsync so a normal deploy does not delete it. It **must not** exclude `.env.example` (older scripts used `--exclude '.env.*'`, which skipped `.env.example` on the server—re-run deploy from a fixed script or `scp` `.env.example` once).
+- **Under `/etc/hodler-suite/`:** some installs use `/etc/hodler-suite/web_portal.env` instead — use `sudo ls -la /etc/hodler-suite/` and restore the file there if that is what the unit references.
+
+4. **`venv` vs `.venv`:** if **`ExecStart=`** references **`.venv/bin/gunicorn`** but you only have **`venv/`**, either recreate the venv as `.venv` or point the interpreter layout at the unit (e.g. `cd /opt/hodler-suite/web_portal && ln -sfn venv .venv` as the service user so `.venv/bin/gunicorn` resolves).
+
+5. **Secrets in systemd drop-ins:** never store API tokens in `*.conf` under `/etc/systemd/system/*.d/` (they appear in logs and `systemctl cat`). Revoke any exposed token, move values into `web_portal.env` (or another root-only file), `sudo systemctl daemon-reload`, then restart.
 
 ## Hosted documentation and TLS
 
