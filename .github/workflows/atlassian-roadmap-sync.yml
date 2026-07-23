@@ -10,6 +10,7 @@ on:
   push:
     branches:
       - main
+      - atlassian-roadmap-sync # TEMPORARY: only for first-run testing before merge, remove after
     paths:
       - "scripts/v2.8/web_portal/**"
       - "docs/Website/hodler-suite-unified-sprint-and-roadmap-2026-05.md"

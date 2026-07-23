@@ -168,3 +168,4 @@ Below, **Session** = a planned sprint-sized chunk. Dependencies are noted inline
 Features listed here that were **scoped but not fully delivered** in earlier seasons (multi-token scan, token lists, credential UX, cache/fallback settings, chain dropdown, plan restrictions) are **first-class** in Sessions P1–P5. Security and scale-readiness sessions (P0, P6–P10) wrap those deliveries so new functionality does not **weaken** the security posture.
 
 For historical delivery status, see [`defi-risk-web-integration-sprint-seasons-2026.md`](./defi-risk-web-integration-sprint-seasons-2026.md).
+
