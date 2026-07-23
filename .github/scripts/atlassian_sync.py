@@ -25,8 +25,11 @@ from atlassian_client import AtlassianApiError, AtlassianClient
 from markdown_to_confluence import markdown_to_confluence_storage
 from roadmap_parser import find_referenced_ids, parse_roadmap_docs
 
-DONE_LIKE_STATUS_NAMES = {"done", "closed", "resolved", "complete", "completed"}
-DONE_LIKE_TRANSITION_NAMES = {"done", "close", "closed", "resolve", "resolved", "complete", "completed", "mark as done"}
+DONE_LIKE_STATUS_NAMES = {"done", "closed", "resolved", "complete", "completed", "implemented"}
+DONE_LIKE_TRANSITION_NAMES = {
+    "done", "close", "closed", "resolve", "resolved", "complete", "completed",
+    "mark as done", "implemented", "implement",
+}
 ROADMAP_LABEL_PREFIX = "roadmap-"
 GENERAL_LABEL = "hodler-suite-roadmap"
 CONFLUENCE_PAGE_TITLE = "Hodler Suite — Roadmap & Sprint Sessions (auto-synced)"
