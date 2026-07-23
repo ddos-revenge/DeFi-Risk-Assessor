@@ -54,12 +54,15 @@ jobs:
           DEPLOY_HEALTH_URL_APP: ${{ secrets.DEPLOY_HEALTH_URL_APP }}
           DEPLOY_HEALTH_URL_SCRIPT: ${{ secrets.DEPLOY_HEALTH_URL_SCRIPT }}
         run: |
-          # Server-side auto_sync_and_deploy.sh is maintained in private ops (not copied from this repository).
+          # The deploy script lives server-side only, at a path outside any git-tracked
+          # tree (/usr/local/sbin), deliberately NOT inside scripts/v2.8/deploy/ - that tree
+          # is git-ignored ops-only content, and this script itself runs `git reset --hard`
+          # on the checkout it lives in, so a git-tracked copy would delete itself on every run.
           ssh -i ~/.ssh/deploy_key \
             -p "${DEPLOY_PORT:-22}" \
             -o StrictHostKeyChecking=no \
             "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "chmod 700 '${DEPLOY_PATH}/scripts/v2.8/deploy/auto_sync_and_deploy.sh' && APP_ROOT='${DEPLOY_PATH}' RUNTIME_TARGET_DIR='${DEPLOY_RUNTIME_TARGET_DIR:-${DEPLOY_PATH}/scripts/v2.0}' WEB_SERVICE='${DEPLOY_WEB_SERVICE:-hodler-web-portal.service}' SCRIPT_SERVICE='${DEPLOY_SCRIPT_SERVICE:-defirisk-webhook.service}' HEALTH_URL_APP='${DEPLOY_HEALTH_URL_APP:-http://127.0.0.1/healthz}' HEALTH_URL_SCRIPT='${DEPLOY_HEALTH_URL_SCRIPT:-http://127.0.0.1:5001/webhook/health/deep/polygon}' BRANCH='main' bash '${DEPLOY_PATH}/scripts/v2.8/deploy/auto_sync_and_deploy.sh'"
+            "APP_ROOT='${DEPLOY_PATH}' RUNTIME_TARGET_DIR='${DEPLOY_RUNTIME_TARGET_DIR:-${DEPLOY_PATH}/scripts/v2.0}' WEB_SERVICE='${DEPLOY_WEB_SERVICE:-hodler-web-portal.service}' SCRIPT_SERVICE='${DEPLOY_SCRIPT_SERVICE:-defirisk-webhook.service}' HEALTH_URL_APP='${DEPLOY_HEALTH_URL_APP:-http://127.0.0.1/healthz}' HEALTH_URL_SCRIPT='${DEPLOY_HEALTH_URL_SCRIPT:-http://127.0.0.1:5001/webhook/health/deep/polygon}' BRANCH='main' bash /usr/local/sbin/hodler_auto_sync_and_deploy.sh"
 
       - name: Notify Slack — success
         if: success()
