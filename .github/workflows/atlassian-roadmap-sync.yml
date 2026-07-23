@@ -1,0 +1,92 @@
+name: Atlassian roadmap sync
+
+# Hodler Suite only - deliberately does NOT watch private_trading_bot/** (the LTC app).
+# - Any push touching the roadmap docs: re-syncs Confluence and proposes Jira issues
+#   for any roadmap item that doesn't have one yet.
+# - Any push touching web_portal code: scans the pushed commit messages for roadmap
+#   IDs (e.g. "U-066", "P12") and transitions the matching Jira issue to Done.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "scripts/v2.8/web_portal/**"
+      - "docs/Website/hodler-suite-unified-sprint-and-roadmap-2026-05.md"
+      - "docs/Website/production-release-sprint-sessions-2026.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  ATLASSIAN_SITE_URL: ${{ secrets.ATLASSIAN_SITE_URL }}
+  ATLASSIAN_EMAIL: ${{ secrets.ATLASSIAN_EMAIL }}
+  ATLASSIAN_API_TOKEN: ${{ secrets.ATLASSIAN_API_TOKEN }}
+  JIRA_PROJECT_KEY: ${{ secrets.JIRA_PROJECT_KEY }}
+  CONFLUENCE_SPACE_KEY: ${{ secrets.CONFLUENCE_SPACE_KEY }}
+  ROADMAP_DOC_1: docs/Website/hodler-suite-unified-sprint-and-roadmap-2026-05.md
+  ROADMAP_DOC_2: docs/Website/production-release-sprint-sessions-2026.md
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+
+      - name: Detect what changed in this push
+        id: detect
+        run: |
+          set -euo pipefail
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.event.after }}"
+          if [[ -n "${BEFORE}" ]] && git cat-file -e "${BEFORE}" 2>/dev/null; then
+            RANGE="${BEFORE}..${AFTER}"
+          else
+            RANGE="${AFTER}~1..${AFTER}"
+          fi
+          echo "range=${RANGE}" >> "$GITHUB_OUTPUT"
+
+          CHANGED_FILES="$(git diff --name-only "${RANGE}" || true)"
+          echo "${CHANGED_FILES}"
+
+          if echo "${CHANGED_FILES}" | grep -qE "^docs/Website/(hodler-suite-unified-sprint-and-roadmap-2026-05|production-release-sprint-sessions-2026)\.md$"; then
+            echo "roadmap_docs_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "roadmap_docs_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if echo "${CHANGED_FILES}" | grep -qE "^scripts/v2\.8/web_portal/"; then
+            echo "code_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve roadmap items referenced in this push's commits
+        if: steps.detect.outputs.code_changed == 'true'
+        working-directory: .github/scripts
+        run: |
+          set -euo pipefail
+          git -C "${GITHUB_WORKSPACE}" log "${{ steps.detect.outputs.range }}" --format=%B | \
+            python3 atlassian_sync.py resolve \
+              --comment-prefix "Resolved automatically from ${{ github.sha }} on ${{ github.ref_name }}. https://github.com/${{ github.repository }}/commit/${{ github.sha }}"
+
+      - name: Propose Jira issues for new roadmap items
+        if: steps.detect.outputs.roadmap_docs_changed == 'true'
+        working-directory: .github/scripts
+        run: |
+          python3 atlassian_sync.py propose "${GITHUB_WORKSPACE}/${ROADMAP_DOC_1}" "${GITHUB_WORKSPACE}/${ROADMAP_DOC_2}"
+
+      - name: Sync roadmap docs to Confluence
+        if: steps.detect.outputs.roadmap_docs_changed == 'true'
+        working-directory: .github/scripts
+        run: |
+          python3 atlassian_sync.py confluence-sync "${GITHUB_WORKSPACE}/${ROADMAP_DOC_1}" "${GITHUB_WORKSPACE}/${ROADMAP_DOC_2}"
