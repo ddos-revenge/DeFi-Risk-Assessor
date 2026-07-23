@@ -1,6 +1,6 @@
 # Production Release — Sprint Sessions (2026)
 
-Last updated: 2026-04-19
+Last updated: 2026-07-23
 
 **Canonical backlog:** **[hodler-suite-unified-sprint-and-roadmap-2026-05.md](./hodler-suite-unified-sprint-and-roadmap-2026-05.md)** merges this file with the web-integration seasons and security plan, deduplicates completed work, and tracks optional hardenings (updated 2026-05-04).
 
@@ -149,6 +149,24 @@ Below, **Session** = a planned sprint-sized chunk. Dependencies are noted inline
   - Rate limiting on the confirm route to resist link-guessing/brute force.
   - Admin visibility: can masters/admins see or revoke other users’ device approvals from an ops surface?
 - **Regression coverage needed:** device-gate blocks unverified login; confirm route rejects expired/reused/tampered tokens; pre-existing verified/known devices unaffected; email delivery uses the SMTP path already confirmed working.
+
+---
+
+### Session P13 — Emergency recovery, ops hardening, and roadmap automation (2026-07-22/23)
+
+**Status: completed 2026-07-23.** Triggered by an outage: a local rsync mistake overwrote the live `web_portal.env` and wiped the `data/` directory, taking the site down. What started as env/secret restoration surfaced several unrelated, pre-existing gaps fixed in the same session.
+
+- **Root cause of the outage:** `web_portal.env` content replaced with placeholder values, and the `data/` directory (all 8 SQLite databases) deleted. App auto-recreated empty databases at restart (`CREATE TABLE IF NOT EXISTS`). No real customer data was lost — the live system has only ever had one user (`admin@hodler-suite.com`); the only real loss was ~9-10 historical test support tickets.
+- **Code-level bug found and fixed:** `os.getenv(key, default)` only applies the default when a key is *entirely absent*, not when present-but-blank. Several optional DB-path env vars (`WEB_PORTAL_MARKETING_OUTREACH_DB`, `WEB_PORTAL_USAGE_STATISTICS_DB`, etc.) were blank-but-present, causing `sqlite3.connect("")` to silently open an ephemeral temp DB — the actual root cause of the `/support-tickets` and `/services-status` crashes. Fixed in `app/config.py` (`.strip() or default` pattern).
+- **Ops scripts recovered:** `cache_warmer_process.py`, `dataset_refresh_process.py`, `purge_user_telemetry.py`, `start_slack_ui_session.sh` were all missing from the server (removed from git in the May security cleanup as "ops-only," never preserved server-side). Recovered from git history (commit `0bfead5`, last-known-good before removal), verified compatible with current code, redeployed. The Slack RPA relay additionally needed Google Chrome installed (snap-packaged `chromium-browser` refuses to run inside a systemd service's cgroup — confinement rejects the foreign cgroup); switched `SUPPORT_BUG_CURSOR_UI_BROWSER_CMD` to `google-chrome-stable`.
+- **Prevention:** new `hodler-db-backup.timer` (nightly, 03:15 UTC, 14-day rotation) backs up all 8 web_portal SQLite databases via `sqlite3 .backup` — no equivalent existed before tonight, which is why the May data loss was unrecoverable.
+- **Legacy duplicate retired:** `hs-resend-sync.service`/`.timer` masked — confirmed (via full script read, not inference) to be an outdated, less-secure duplicate of `support-resend-sync`, which remains the active sync path.
+- **Security Verification Snapshot — all items resolved:** `WEB_PORTAL_EDGE_TLS_TERMINATION=true` (nginx/Cloudflare already terminate TLS); step-up 2FA enabled and enforced; IP2Location configured for VPN/blacklist intel; `SUPPORT_INBOUND_ROUTING_ACTIVE=true` (flag was real, not cosmetic — gates the Services Status "Inbound Reply Webhook" card, traced via git history to the original v2.0 code). Atlassian API token renewal reminder configured.
+- **Script API probe auth implemented for real:** `SCRIPT_API_PROBE_SHARED_SECRET` now enforced server-side on `/webhook/health` and `/webhook/health/deep/<chain>` (Bearer token + optional HMAC-SHA256 signature) — previously the client sent an auth header nothing verified.
+- **Obsolete local desktop app removed:** `system_tray.py` and the full `dashboard/` suite (24 files), plus `run_risk_assessment.sh` and `macos_dock_app.py` — the macOS menu-bar tool used to manually/periodically trigger cache refresh for the DeFi Risk Assessor engine before it ran 24/7 on the VPS. Its background-fetch role is now fully covered by `cache-warmer.timer` (2h) and `dataset-refresh.timer` (6h). Its only HTTP-only consumers (`/webhook/update_all`, `/webhook/update_all_status`, `/webhook/update_token`, `/webhook/status`, `/webhook/cache`) were confirmed dead (no live caller anywhere, including `cache_manager.py`'s own trigger — already commented out) and removed from `webhook_server.py`.
+- **New: automated Jira/Confluence roadmap sync** (`.github/workflows/atlassian-roadmap-sync.yml`, Hodler Suite only — never `private_trading_bot/`): proposes a Jira issue (project `DT`) for any roadmap item without one yet, resolves (transitions to `Implemented`) the matching issue when a commit references its ID (e.g. `U-066`), and mirrors both roadmap docs to a Confluence page (space `DE`). Verified end-to-end against real Jira/Confluence: all backlog items created, idempotent reruns confirmed, a real resolve-transition confirmed.
+- **Deploy pipeline fix (unrelated bug, found while wiring up the above):** `deploy.yml` had failed on every run since May 4th. `auto_sync_and_deploy.sh` lived inside `scripts/v2.8/deploy/`, which the May security cleanup git-ignored — but the script's own `git reset --hard` step deleted itself on every invocation. Relocated to `/usr/local/sbin/hodler_auto_sync_and_deploy.sh` (git-immune, matching the other ops scripts); confirmed working via a real automated deploy.
+- **Still open:** the Script API's THORChain health probe (`thornode.ninerealms.com`) no longer resolves via DNS — confirmed dead from three independent resolvers, along with every other `ninerealms.com`/`thorchain.network` subdomain variant tried. Needs a current, verified node URL from an authoritative source before re-wiring (see `U-067`).
 
 ---
 
