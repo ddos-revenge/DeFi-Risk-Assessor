@@ -3837,7 +3837,14 @@ def update_single_token():
             'status': 'error',
             'message': 'Token address required in payload field `address` (or legacy `token_address`)',
         }), 400
-    
+
+    if not token_address.isalnum():
+        return jsonify({
+            'status': 'error',
+            'message': 'Token address must be alphanumeric - every chain this service supports '
+                       '(EVM hex, Solana base58, THORChain bech32) uses letters and digits only.',
+        }), 400
+
     print(f"🔄 Triggered cache update for {token_address}")
     
     try:

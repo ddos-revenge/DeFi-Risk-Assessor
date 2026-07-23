@@ -9394,7 +9394,10 @@ class DeFiRiskAssessor:
         # Priority 5: real-time explorer query (Blockscout for L2s)
         try:
                 normalized_chain = normalize_chain_name(chain)
-                if normalized_chain in ('op', 'optimism', 'base', 'arbitrum', 'arb', 'sonic', 'zksync', 'mantle'):
+                if (
+                    normalized_chain in ('op', 'optimism', 'base', 'arbitrum', 'arb', 'sonic', 'zksync', 'mantle')
+                    and is_valid_evm_address(token_address_live)
+                ):
                     chain_key = 'op' if normalized_chain in ('op', 'optimism') else ('arbitrum' if normalized_chain == 'arb' else normalized_chain)
                     holders_from_blockscout = self._fetch_blockscout_holders(token_address_live, chain_key)
                     if holders_from_blockscout > 0:
