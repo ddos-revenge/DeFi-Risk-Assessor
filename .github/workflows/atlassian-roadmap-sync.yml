@@ -80,6 +80,11 @@ jobs:
             python3 atlassian_sync.py resolve \
               --comment-prefix "Resolved automatically from ${{ github.sha }} on ${{ github.ref_name }}. https://github.com/${{ github.repository }}/commit/${{ github.sha }}"
 
+      - name: TEMP diagnose Confluence space access
+        working-directory: .github/scripts
+        run: |
+          python3 atlassian_sync.py diagnose
+
       - name: Propose Jira issues for new roadmap items
         if: steps.detect.outputs.roadmap_docs_changed == 'true'
         working-directory: .github/scripts

@@ -97,6 +97,17 @@ class AtlassianClient:
 
     # ----------------------------------------------------------- Confluence
 
+    def confluence_list_spaces(self, *, limit: int = 100) -> list[dict]:
+        url = f"{self.site_url}/wiki/rest/api/space?limit={limit}"
+        result = self._request("GET", url)
+        return result.get("results", [])
+
+    def confluence_get_space(self, space_key: str) -> dict:
+        from urllib.parse import quote
+
+        url = f"{self.site_url}/wiki/rest/api/space/{quote(space_key)}"
+        return self._request("GET", url)
+
     def confluence_find_page(self, space_key: str, title: str) -> dict | None:
         from urllib.parse import quote
 

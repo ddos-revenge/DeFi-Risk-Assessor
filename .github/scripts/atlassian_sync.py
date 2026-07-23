@@ -151,6 +151,29 @@ def cmd_resolve(args: argparse.Namespace) -> int:
     return 1 if failed else 0
 
 
+def cmd_diagnose(args: argparse.Namespace) -> int:
+    client = _client_from_env()
+    configured_key = os.environ.get("CONFLUENCE_SPACE_KEY", "")
+
+    print(f"[diagnose] configured CONFLUENCE_SPACE_KEY = {configured_key!r}")
+
+    try:
+        spaces = client.confluence_list_spaces()
+        print(f"[diagnose] account can see {len(spaces)} space(s):")
+        for sp in spaces:
+            print(f"  key={sp.get('key')!r} id={sp.get('id')!r} type={sp.get('type')!r} name={sp.get('name')!r}")
+    except AtlassianApiError as exc:
+        print(f"[diagnose] ERROR listing spaces: {exc}", file=sys.stderr)
+
+    try:
+        detail = client.confluence_get_space(configured_key)
+        print(f"[diagnose] GET space by configured key succeeded: id={detail.get('id')!r} name={detail.get('name')!r}")
+    except AtlassianApiError as exc:
+        print(f"[diagnose] ERROR fetching configured space key directly: {exc}", file=sys.stderr)
+
+    return 0
+
+
 def cmd_confluence_sync(args: argparse.Namespace) -> int:
     client = _client_from_env()
     space_key = os.environ["CONFLUENCE_SPACE_KEY"]
@@ -197,6 +220,9 @@ def main() -> int:
     confluence_p = sub.add_parser("confluence-sync", help="Push roadmap docs to Confluence")
     confluence_p.add_argument("docs", nargs="+", help="Roadmap doc paths to render")
     confluence_p.set_defaults(func=cmd_confluence_sync)
+
+    diagnose_p = sub.add_parser("diagnose", help="List visible Confluence spaces and check the configured space key")
+    diagnose_p.set_defaults(func=cmd_diagnose)
 
     args = parser.parse_args()
     return args.func(args)
